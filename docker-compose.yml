@@ -1,0 +1,21 @@
+services:
+  base-project:
+    image: IMAGE_NAME
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: base-project
+        ENV: dev
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: base-project
+    hostname: base-project
+    restart: always
+    volumes:
+      - ./logs:/app/logs
+
+networks:
+  default:
+    name: base-network
+    external: true
