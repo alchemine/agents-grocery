@@ -54,12 +54,28 @@ inference:
             chat_template_kwargs:
               skip_reasoning: true
         max_concurrency: 16
+      tpu_virtual_client:
+        model_config:
+          openai_api_base: http://localhost:8000/v1
+          openai_api_key: empty
+          model: /workspace/client-15b-local/
+          temperature: 0.5
+          max_tokens: 8192
+          extra_body:
+            skip_special_tokens: false
+            repetition_penalty: 1.05
+            top_k: -1
+            top_p: 1
+            chat_template_kwargs:
+              skip_reasoning: true
+        max_concurrency: 16
 
   embeddings:
     provider: local
     providers:
       local:
         model_config:
+          api_key: empty
           openai_api_base: http://EMBEDDING_IP:8000/v1
           model: dragonkue/snowflake-arctic-embed-l-v2.0-ko
         dimensions: 1024

@@ -3,7 +3,7 @@ pyyaml==6.0.2
 requests==2.32.3
 fastapi==0.115.8
 uvicorn==0.34.0
-aiohttp==3.11.12
+aiohttp
 langchain==0.3.27
 langchain-community==0.3.27
 langchain-openai==0.3.29

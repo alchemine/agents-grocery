@@ -72,7 +72,6 @@ class LLMManager(SingletonBase):
     def _get_model(self) -> ChatOpenAI:
         """Get LLM model."""
         return ChatOpenAI(
-            output_version="responses/v1",
             **self.cfg["model_config"],
         )
 
