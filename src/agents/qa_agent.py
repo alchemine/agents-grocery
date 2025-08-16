@@ -36,9 +36,12 @@ class GraphState(MessagesState):
 
 class QAAgent(BaseAgent):
     def __init__(
-        self, llm_provider: str = "openai_fast", embeddings_provider: str = "local"
+        self,
+        llm_provider: str = "gpt_4o_mini",
+        embeddings_provider: str = "local",
+        use_llm_cache: bool = False,
     ) -> None:
-        super().__init__(llm_provider, embeddings_provider)
+        super().__init__(llm_provider, embeddings_provider, use_llm_cache)
         self.agents = self._build_agents()
         self.graph = self._build_graph()
 
@@ -188,6 +191,6 @@ class QAAgent(BaseAgent):
 
 
 if __name__ == "__main__":
-    qa_agent = QAAgent()
+    qa_agent = QAAgent(use_llm_cache=True)
     result = qa_agent.invoke("트럼프랑 일론이랑 요즘 어떻게 지내?", user_id="test")
     log_info(result)

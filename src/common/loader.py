@@ -5,6 +5,7 @@ from glob import glob
 
 import yaml
 from easydict import EasyDict
+from jinja2 import Template
 
 
 ############################################################
@@ -15,8 +16,14 @@ ls_dir = lambda path: [path for path in sorted(glob(f"{path}/*")) if isdir(path)
 ls_file = lambda path: [path for path in sorted(glob(f"{path}/*")) if isfile(path)]
 
 
-def load_yaml(path: str) -> EasyDict:
+def load_yaml(path: str, **params) -> EasyDict:
     """Load yaml file."""
-    with open(path, "r", encoding="utf8") as f:
-        config = yaml.safe_load(f)
+    if params:
+        with open(path, "r", encoding="utf8") as f:
+            template = Template(f.read())
+        rendered = template.render(**params)
+        config = yaml.safe_load(rendered)
+    else:
+        with open(path, "r", encoding="utf8") as f:
+            config = yaml.safe_load(f)
     return EasyDict(config)

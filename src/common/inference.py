@@ -171,7 +171,7 @@ class EmbeddingsManager(SingletonBase):
 
 
 if __name__ == "__main__":
-    llm_manager = LLMManager(provider="gpt-4o-mini", use_cache=True)
+    llm_manager = LLMManager(provider="gpt_4o_mini", use_cache=True)
     embeddings_manager = EmbeddingsManager(provider="local", use_cache=True)
     print(llm_manager.model_name)
     print(embeddings_manager.model_name)

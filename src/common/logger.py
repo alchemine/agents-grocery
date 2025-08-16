@@ -159,12 +159,15 @@ def build_general_logger(
         logger.addHandler(file_handler)
 
     # Logstash handler
-    logstash_handler = GeneralLogstashHandler(
-        host=CFG.logstash.host,
-        port=CFG.logstash.general_log_port,
-        version=1,
-    )
-    logger.addHandler(logstash_handler)
+    try:
+        logstash_handler = GeneralLogstashHandler(
+            host=CFG.logstash.host,
+            port=CFG.logstash.general_log_port,
+            version=1,
+        )
+        logger.addHandler(logstash_handler)
+    except Exception:
+        log_warning("Failed to connect to logstash (general_log)")
 
     return logger
 
@@ -178,12 +181,15 @@ def build_chat_history_logger(
     logger.setLevel(getattr(logging, log_level.upper()))
 
     # Logstash handler
-    logstash_handler = JsonLogstashHandler(
-        host=CFG.logstash.host,
-        port=CFG.logstash.chat_history_log_port,
-        version=1,
-    )
-    logger.addHandler(logstash_handler)
+    try:
+        logstash_handler = JsonLogstashHandler(
+            host=CFG.logstash.host,
+            port=CFG.logstash.chat_history_log_port,
+            version=1,
+        )
+        logger.addHandler(logstash_handler)
+    except Exception:
+        log_warning("Failed to connect to logstash (chat_history_log)")
 
     return logger
 
@@ -197,12 +203,15 @@ def build_api_logger(
     logger.setLevel(getattr(logging, log_level.upper()))
 
     # Logstash handler
-    logstash_handler = JsonLogstashHandler(
-        host=CFG.logstash.host,
-        port=CFG.logstash.api_log_port,
-        version=1,
-    )
-    logger.addHandler(logstash_handler)
+    try:
+        logstash_handler = JsonLogstashHandler(
+            host=CFG.logstash.host,
+            port=CFG.logstash.api_log_port,
+            version=1,
+        )
+        logger.addHandler(logstash_handler)
+    except Exception:
+        log_warning("Failed to connect to logstash (api_log)")
 
     return logger
 
@@ -222,7 +231,7 @@ def pretty_dict(s: str) -> str:
 
 
 def slog(
-    msg: str,
+    msg: str | dict,
     style: str | None = None,
     level: Literal["info", "error", "warning", "debug"] = "info",
     dump: bool = True,
@@ -251,7 +260,7 @@ def slog(
         case "info":
             logger.info(stylish_msg, **kwargs)
         case "error":
-            logger.error(stylish_msg, exc_info=True, **kwargs)
+            logger.exception(stylish_msg, **kwargs)
         case "warning":
             logger.warning(stylish_msg, **kwargs)
         case "debug":
@@ -262,7 +271,7 @@ def slog(
     return stylish_msg
 
 
-def log_info(msg: str, dump: bool = True, prefix: str = "", **kwargs) -> str:
+def log_info(msg: str | dict, dump: bool = True, prefix: str = "", **kwargs) -> str:
     """Stylish info log.
 
     Args:
@@ -275,7 +284,7 @@ def log_info(msg: str, dump: bool = True, prefix: str = "", **kwargs) -> str:
     return slog(msg, style="GREEN", dump=dump, **kwargs)
 
 
-def log_success(msg: str, dump: bool = True, prefix: bool = True, **kwargs) -> str:
+def log_success(msg: str | dict, dump: bool = True, prefix: str = "", **kwargs) -> str:
     """Stylish success log.
 
     Args:
@@ -284,12 +293,12 @@ def log_success(msg: str, dump: bool = True, prefix: bool = True, **kwargs) -> s
         prefix (bool): The prefix flag. Defaults to True.
     """
     if prefix:
-        prefix = "[SUCCESS]"
+        prefix = f"[{prefix}]"
         msg = f"{prefix:9} {msg}"
     return slog(msg, style="OKBLUE", dump=dump, **kwargs)
 
 
-def log_error(msg: str, dump: bool = False, prefix: bool = True, **kwargs) -> str:
+def log_error(msg: str | dict, dump: bool = True, prefix: str = "", **kwargs) -> str:
     """Stylish error log.
 
     Args:
@@ -297,12 +306,12 @@ def log_error(msg: str, dump: bool = False, prefix: bool = True, **kwargs) -> st
         dump (bool): The dump flag. Defaults to True.
     """
     if prefix:
-        prefix = "[FAILED]"
+        prefix = f"[{prefix}]"
         msg = f"{prefix:9} {msg}"
     return slog(msg, style="TOMATO", level="error", dump=dump, **kwargs)
 
 
-def log_warning(msg: str, dump: bool = False, prefix: bool = True, **kwargs) -> str:
+def log_warning(msg: str | dict, dump: bool = True, prefix: str = "", **kwargs) -> str:
     """Stylish warning log.
 
     Args:
@@ -310,7 +319,7 @@ def log_warning(msg: str, dump: bool = False, prefix: bool = True, **kwargs) -> 
         dump (bool): The dump flag. Defaults to True.
     """
     if prefix:
-        prefix = "[WARNING]"
+        prefix = f"[{prefix}]"
         msg = f"{prefix:9} {msg}"
     return slog(msg, style="GRAPEFRUIT", level="warning", dump=dump, **kwargs)
 
@@ -358,6 +367,5 @@ if __name__ == "__main__":
     log_success("This is a success message.")
     log_error("This is an error message.")
     log_warning("This is a warning message.")
-    log_api("This is an API message.")
     for style in STYLES:
         slog(f"This is a {style} message.", style=style)

@@ -7,11 +7,24 @@ from src.common.timer import T
 
 class ClientAgent(BaseAgent):
     def __init__(
-        self, llm_provider: str = "tpu_virtual_client", embeddings_provider: str = "local"
+        self,
+        llm_provider: str = "virtual_client",
+        embeddings_provider: str = "local",
     ) -> None:
         super().__init__(llm_provider, embeddings_provider)
-        self.persona = ["computer scientist", "software engineer", "mathematician", "teacher", "student", "doctor", "driver", "trader", "translator", "tennis player", "basketball player"]
-
+        self.persona = [
+            "computer scientist",
+            "software engineer",
+            "mathematician",
+            "teacher",
+            "student",
+            "doctor",
+            "driver",
+            "trader",
+            "translator",
+            "tennis player",
+            "basketball player",
+        ]
 
     ############################################################
     # Public methods

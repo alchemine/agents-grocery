@@ -36,11 +36,11 @@
 
 - **설정 파일 경로** (`config/__init__.py` 기준)
 
-  - `config/service.dev.yaml`: 서비스/모델 기본 설정 (기본 사용)
-  - `config/service.yaml`: 존재 시 우선 적용
-  - `config/engine.yaml`: 엔진 부가 설정 (없어도 되며, 최소 `{}` 로 유지 가능)
+  - `config/config.yaml`: 로컬 설정 파일 (존재 시 우선 적용)
+  - `config/config.{ENV}.yaml`: `config.yaml`이 없을 경우, `{ENV}`에 맞는 설정 파일 사용
+  - PostgreSQL DB: 로컬 설정 파일에 없는 항목에 대한 fallback으로 원격 DB 설정 사용
 
-- **예시: `config/service.dev.yaml`** (발췌)
+- **예시: `config/config.dev.yaml`** (발췌)
 
   ```yaml
   api:
@@ -251,8 +251,6 @@ main()
   - 다음 환경변수를 설정하세요: `export OPENAI_API_KEY=...`, `export TAVILY_API_KEY=...`
 - **의존성 충돌이 발생합니다.**
   - `pip` 버전을 최신으로 업그레이드하고(`python -m pip install -U pip`), 문제가 되는 패키지 버전을 완화해 재시도하세요.
-- **엔진 설정 파일이 비어 있어도 되나요?**
-  - 가능합니다. 최소 `{}` 내용으로 두면 됩니다.
 
 ---
 

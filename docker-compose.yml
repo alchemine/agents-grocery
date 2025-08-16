@@ -1,21 +1,58 @@
+x-common: &common
+  build:
+    args: &common-build-args
+      ENV: dev
+      UID: ${UID}
+  env_file: .env
+  user: ${UID}
+  restart: always
+
 services:
-  base-project:
-    image: IMAGE_NAME
+  agents:
+    <<: *common
+    image: agrocery/agents:0.1.0
     build:
-      context: .
-      dockerfile: Dockerfile
       args:
-        SERVICE_NAME: base-project
-        ENV: dev
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-    container_name: base-project
-    hostname: base-project
-    restart: always
+        <<: *common-build-args
+    container_name: agrocery-agents
+    hostname: agrocery-agents
+    command: ["sleep", "infinity"]
     volumes:
-      - ./logs:/app/logs
+      # Dev mode
+      - ./.env:/app/.env
+      - ./app:/app/app
+      - ./config:/app/config
+      - ./src:/app/src
+      - ./tests:/app/tests
+
+  init:
+    <<: *common
+    profiles:
+      - init
+    image: agrocery/setup:0.1.0
+    build:
+      context: setup
+      args:
+        <<: *common-build-args
+    container_name: agrocery-init
+    hostname: agrocery-init
+    restart: no
+    command: ["python", "/app/src/initialize.py"]
+
+  clean:
+    <<: *common
+    profiles:
+      - clean
+    image: agrocery/setup:0.1.0
+    build:
+      context: setup
+      args:
+        <<: *common-build-args
+    container_name: agrocery-clean
+    hostname: agrocery-clean
+    restart: no
+    command: ["python", "/app/src/clean.py"]
 
 networks:
   default:
-    name: base-network
-    external: true
+    name: agrocery
