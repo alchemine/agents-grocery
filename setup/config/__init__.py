@@ -6,7 +6,6 @@ from os import getenv
 from pathlib import Path
 from os.path import exists
 from dotenv import load_dotenv
-from socket import gethostname
 
 import psycopg
 from easydict import EasyDict
@@ -24,7 +23,8 @@ load_dotenv()
 # Environments
 ##################################################
 ENV = getenv("ENV", "dev")
-SERVICE_NAME = gethostname()
+PROJECT_NAME = getenv("PROJECT_NAME")
+SERVICE_NAME = getenv("SERVICE_NAME")
 
 
 ##################################################
@@ -102,14 +102,5 @@ CFG = FallbackConfig(
 
 
 if __name__ == "__main__":
-    print(
-        f"""
-ENV: {ENV}
-SERVICE_NAME: {SERVICE_NAME}
-ELASTICSEARCH_URL: {ELASTICSEARCH_URL}
-ELASTICSEARCH_USER: {ELASTICSEARCH_USER}
-ELASTICSEARCH_PASSWORD: {ELASTICSEARCH_PASSWORD}
-ROOT_DIR: {ROOT_DIR}
-CFG: {CFG}
-"""
-    )
+    print(ENV)
+    print(CFG)

@@ -1,0 +1,15 @@
+api:
+  port: 8000
+  workers: 1
+
+inference:
+  llm:
+    providers:
+      virtual_client:
+        model_config:
+          openai_api_base: http://alchemine.iptime.org:58000/v1
+          openai_api_key: empty
+          model: /models/Virtual-Client.Q4_K_M.gguf
+          max_tokens: 512
+        invoke_config:
+          max_concurrency: 16

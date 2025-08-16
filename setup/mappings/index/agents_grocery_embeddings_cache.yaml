@@ -1,0 +1,17 @@
+index_template:
+  name: agents_grocery_embeddings_cache_template
+  body:
+    index_patterns: ["agents_grocery_embeddings_cache-*"]
+    template:
+      settings:
+        number_of_shards: 1
+        number_of_replicas: 1
+        index.lifecycle.name: inference_cache_policy
+        index.lifecycle.rollover_alias: agents_grocery_embeddings_cache
+
+index:
+  name: agents_grocery_embeddings_cache-000001
+  body:
+    aliases:
+      agents_grocery_embeddings_cache:
+        is_write_index: true

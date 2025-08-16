@@ -1,13 +1,13 @@
 import uvicorn
 
-from config import CFG_SERVICE, ENV
+from config import CFG, ENV
 
 
 if __name__ == "__main__":
     uvicorn.run(
         app="app:application",
         host="0.0.0.0",
-        port=CFG_SERVICE.api.port,
-        workers=CFG_SERVICE.api.workers,
+        port=CFG.api.port,
+        workers=CFG.api.workers,
         reload=True if ENV == "dev" else False,
     )
