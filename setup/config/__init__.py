@@ -23,7 +23,6 @@ load_dotenv()
 # Environments
 ##################################################
 ENV = getenv("ENV", "dev")
-PROJECT_NAME = getenv("PROJECT_NAME")
 SERVICE_NAME = getenv("SERVICE_NAME")
 
 
