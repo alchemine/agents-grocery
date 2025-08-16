@@ -1,43 +1,72 @@
 """Inference module."""
 
-from langchain.globals import set_llm_cache
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.cache import SQLiteCache
 
-from config import CFG_SERVICE, SERVICE_NAME
-from src.common.utils import SingletonBase
-from src.common.logger import log_success, log_warning
+from config import (
+    CFG,
+    SERVICE_NAME,
+    ELASTICSEARCH_URL,
+    ELASTICSEARCH_USER,
+    ELASTICSEARCH_PASSWORD,
+)
+from src.common.utils import SingletonBase, dump_json
+from src.common.logger import log_info, log_success, log_warning, log_error
 
 
-# Cache LLM responses
-_llm_cache_init = False
-
-
-def init_llm_cache() -> None:
-    """Initialize LLM cache."""
-    global _llm_cache_init
-    if _llm_cache_init:
-        return
+def create_llm_cache(service_name: str, provider: str):
+    """Create LLM cache instance for individual model."""
+    cache_key = f"{service_name}_{provider}"
 
     try:
         from langchain_elasticsearch import ElasticsearchCache
 
         param = {
-            "es_url": CFG_SERVICE.elasticsearch.url,
-            "es_user": CFG_SERVICE.elasticsearch.user,
-            "es_password": CFG_SERVICE.elasticsearch.password,
-            "index_name": CFG_SERVICE.elasticsearch.llm_cache.index.name,
-            "metadata": {"service": SERVICE_NAME},
+            "es_url": ELASTICSEARCH_URL,
+            "es_user": ELASTICSEARCH_USER,
+            "es_password": ELASTICSEARCH_PASSWORD,
+            "index_name": CFG.inference.llm.cache.index,
+            "metadata": {"service": service_name, "provider": provider},
         }
         cache = ElasticsearchCache(**param)
-        set_llm_cache(cache)
-        _llm_cache_init = True
-        log_success("LLM cache using Elasticsearch has been successfully enabled.")
+        log_success(f"LLM cache for {cache_key} using Elasticsearch created.")
     except Exception as e:
-        cache = SQLiteCache(database_path="llm_cache.db")
-        set_llm_cache(cache)
-        _llm_cache_init = True
-        log_success("LLM cache using SQLiteCache has been successfully enabled.")
+        from langchain_community.cache import SQLiteCache
+
+        log_warning(f"LLM cache using Elasticsearch failed: {e}\n{dump_json(param)}")
+        db_path = f"llm_cache_{cache_key}.db"
+        cache = SQLiteCache(database_path=db_path)
+        log_success(f"LLM cache for {cache_key} using SQLiteCache created.")
+
+    return cache
+
+
+def create_embeddings_cache(service_name: str, provider: str):
+    """Create embeddings cache instance for individual model."""
+    cache_key = f"{service_name}_{provider}"
+
+    try:
+        from langchain_elasticsearch import ElasticsearchEmbeddingsCache
+
+        param = {
+            "es_url": ELASTICSEARCH_URL,
+            "es_user": ELASTICSEARCH_USER,
+            "es_password": ELASTICSEARCH_PASSWORD,
+            "index_name": CFG.inference.embeddings.cache.index,
+            "metadata": {"service": service_name, "provider": provider},
+        }
+        cache = ElasticsearchEmbeddingsCache(**param)
+        log_success(f"Embeddings cache for {cache_key} using Elasticsearch created.")
+    except Exception as e:
+        from langchain.storage import LocalFileStore
+
+        log_warning(
+            f"Embeddings cache using Elasticsearch failed: {e}\n{dump_json(param)}"
+        )
+        db_path = f"embeddings_cache_{cache_key}.db"
+        cache = LocalFileStore(db_path)
+        log_success(f"Embeddings cache for {cache_key} using LocalFileStore created.")
+
+    return cache
 
 
 class LLMManager(SingletonBase):
@@ -57,29 +86,44 @@ class LLMManager(SingletonBase):
     PREAMBLES = "Before you call a tool, explain why you are calling it."
 
     @classmethod
-    def _generate_instance_key(cls, provider: str) -> tuple:
+    def _generate_instance_key(cls, provider: str, *args, **kwargs) -> tuple:
         return (provider,)
 
-    def _init_once(self, provider: str) -> None:
+    def _init_once(self, provider: str, use_cache: bool = False) -> None:
         """Initialize LLM manager."""
-        init_llm_cache()
+        assert (
+            provider in CFG.inference.llm.providers
+        ), f"provider({provider}) should be in CFG.inference.llm.providers"
 
         self.provider = provider
-        self.cfg = CFG_SERVICE.inference.llm.providers[provider]
-        self.model = self._get_model()
+        self.model = self._get_model(use_cache)
         self.invoke_config = self._get_invoke_config()
+        self.model_name = self._get_model_name()
 
-    def _get_model(self) -> ChatOpenAI:
+    def _get_model(self, use_cache: bool) -> ChatOpenAI:
         """Get LLM model."""
-        return ChatOpenAI(
-            **self.cfg["model_config"],
-        )
+        try:
+            model_config = CFG.inference.llm.providers[self.provider].get(
+                "model_config"
+            )
+            if use_cache:
+                model_config["cache"] = create_llm_cache(SERVICE_NAME, self.provider)
+            return ChatOpenAI(**model_config)
+        except Exception:
+            log_error(f"Invalid model config: {dump_json(model_config)}")
+            raise ValueError(f"No model config found for {self.provider}")
 
     def _get_invoke_config(self) -> dict:
         """Get invoke config for LLM."""
-        return {
-            "max_concurrency": self.cfg.max_concurrency,
-        }
+        try:
+            return CFG.inference.llm.providers[self.provider].invoke_config
+        except Exception:
+            log_info(f"No invoke config found for {self.provider}")
+            return {}
+
+    def _get_model_name(self) -> str:
+        """Get model name."""
+        return CFG.inference.llm.providers[self.provider].model_config.model
 
 
 class EmbeddingsManager(SingletonBase):
@@ -90,14 +134,44 @@ class EmbeddingsManager(SingletonBase):
     """
 
     @classmethod
-    def _generate_instance_key(cls, provider: str) -> tuple:
+    def _generate_instance_key(cls, provider: str, *args, **kwargs) -> tuple:
         return (provider,)
 
-    def _init_once(self, provider: str) -> None:
+    def _init_once(self, provider: str, use_cache: bool = False) -> None:
         self.provider = provider
-        self.cfg = CFG_SERVICE.inference.embeddings.providers[provider]
-        self.model = self._get_model()
+        self.model = self._get_model(use_cache)
+        self.model_name = self._get_model_name()
 
-    def _get_model(self) -> OpenAIEmbeddings:
+    def _get_model(self, use_cache: bool) -> OpenAIEmbeddings:
         """Get embeddings model."""
-        return OpenAIEmbeddings(**self.cfg["model_config"])
+        try:
+            model_config = CFG.inference.embeddings.providers[self.provider].get(
+                "model_config"
+            )
+            model = OpenAIEmbeddings(**model_config)
+
+            if use_cache:
+                from langchain.embeddings import CacheBackedEmbeddings
+
+                cache = create_embeddings_cache(SERVICE_NAME, self.provider)
+                model = CacheBackedEmbeddings.from_bytes_store(
+                    model,
+                    cache,
+                    namespace=f"{SERVICE_NAME}_{self.provider}",
+                    key_encoder="blake2b",
+                )
+            return model
+        except Exception:
+            log_error(f"Invalid embeddings config: {dump_json(model_config)}")
+            raise ValueError(f"No embeddings config found for {self.provider}")
+
+    def _get_model_name(self) -> str:
+        """Get model name."""
+        return CFG.inference.embeddings.providers[self.provider].model_config.model
+
+
+if __name__ == "__main__":
+    llm_manager = LLMManager(provider="gpt-4o-mini", use_cache=True)
+    embeddings_manager = EmbeddingsManager(provider="local", use_cache=True)
+    print(llm_manager.model_name)
+    print(embeddings_manager.model_name)

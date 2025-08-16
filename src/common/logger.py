@@ -8,7 +8,9 @@ from typing import Literal
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 
-from config import SERVICE_NAME
+from logstash import LogstashHandler
+
+from config import CFG
 
 
 # https://pkg.go.dev/github.com/shafiqaimanx/pastax/colors
@@ -41,6 +43,7 @@ STYLES = {
 
 # With name version (for debugging)
 LOG_FORMAT = "%(asctime)s | %(name)-12s | %(levelname)-8s | %(message)s"
+# LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 ANSI_PATTERN = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
@@ -59,8 +62,38 @@ class TqdmLogger:
         pass
 
 
+class GeneralLogstashHandler(LogstashHandler):
+    """Custom Logstash handler for general logs."""
+
+    def __init__(self, host, port, version=1):
+        super().__init__(host, port, version)
+
+    def makePickle(self, record):
+        """Override to create structured log data."""
+        record.msg = ANSI_PATTERN.sub("", str(record.msg))
+        raw_result = self.formatter.format(record)
+        return raw_result
+
+
+class JsonLogstashHandler(LogstashHandler):
+    """Custom Logstash handler for JSON logs."""
+
+    def __init__(self, host, port, version=1):
+        super().__init__(host, port, version)
+
+    def makePickle(self, record):
+        """Override to create structured log data."""
+        # Parse messages
+        d = json.loads(record.msg)
+        for k in d:
+            setattr(record, k, d[k])
+        record.msg = ""
+        raw_result = self.formatter.format(record)
+        return raw_result
+
+
 def build_general_logger(
-    logger_name: str = None,
+    logger_name: str = "general",
     log_level: str = "INFO",
     log_format: str = LOG_FORMAT,
     date_format: str = LOG_DATE_FORMAT,
@@ -124,6 +157,52 @@ def build_general_logger(
         file_handler.setFormatter(no_color_formatter)
         file_handler.flush = lambda: file_handler.stream.flush()
         logger.addHandler(file_handler)
+
+    # Logstash handler
+    logstash_handler = GeneralLogstashHandler(
+        host=CFG.logstash.host,
+        port=CFG.logstash.general_log_port,
+        version=1,
+    )
+    logger.addHandler(logstash_handler)
+
+    return logger
+
+
+def build_chat_history_logger(
+    logger_name: str = "chat_history",
+    log_level: str = "INFO",
+) -> logging.Logger:
+    # Create logger
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(getattr(logging, log_level.upper()))
+
+    # Logstash handler
+    logstash_handler = JsonLogstashHandler(
+        host=CFG.logstash.host,
+        port=CFG.logstash.chat_history_log_port,
+        version=1,
+    )
+    logger.addHandler(logstash_handler)
+
+    return logger
+
+
+def build_api_logger(
+    logger_name: str = "api",
+    log_level: str = "INFO",
+) -> logging.Logger:
+    # Create logger
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(getattr(logging, log_level.upper()))
+
+    # Logstash handler
+    logstash_handler = JsonLogstashHandler(
+        host=CFG.logstash.host,
+        port=CFG.logstash.api_log_port,
+        version=1,
+    )
+    logger.addHandler(logstash_handler)
 
     return logger
 
@@ -236,23 +315,33 @@ def log_warning(msg: str, dump: bool = False, prefix: bool = True, **kwargs) -> 
     return slog(msg, style="GRAPEFRUIT", level="warning", dump=dump, **kwargs)
 
 
-def log_api(msg: str, error: bool = False, **kwargs) -> None:
+def log_api(**kwargs) -> None:
     """Stylish api log.
 
     Args:
         msg (str): The message to log.
         error (bool): The error status of the API. Defaults to False.
     """
-    if error:
-        log_error("Request API:")
-        log_error(msg, dump=True)
-    else:
-        log_success("Request API:")
-        log_success(msg)
+    return api_logger.info(json.dumps(kwargs))
+
+
+def log_chat_history(question: str, response: str, user_id: str, chat_idx: int) -> None:
+    """Log chat history.
+
+    Args:
+        question (str): The question to log.
+        response (str): The response to log.
+        user_id (str): The user id to log.
+        chat_idx (int): The chat index to log.
+    """
+    d = {"human": question, "ai": response, "user_id": user_id, "chat_idx": chat_idx}
+    return chat_history_logger.info(json.dumps(d))
 
 
 # Setup default logger
-logger = build_general_logger(SERVICE_NAME)
+logger = build_general_logger()
+chat_history_logger = build_chat_history_logger()
+api_logger = build_api_logger()
 
 
 # Disable logging for specific modules

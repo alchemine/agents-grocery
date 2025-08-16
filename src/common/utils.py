@@ -3,18 +3,22 @@
 Commonly used functions and classes are here.
 """
 
+import json
+from hashlib import md5
 from datetime import datetime
 from abc import ABCMeta, abstractmethod
 
-# from tabulate import tabulate
 
-
-# tprint = lambda dic: print(
-#     tabulate(dic, headers="keys", tablefmt="psql")
-# )  # print with fancy 'psql' format
 vars_ = lambda obj: {k: v for k, v in vars(obj).items() if not k.startswith("__")}
-str2dt = lambda s, format="%Y-%m-%d": datetime.strptime(s, format)
+str2dt = lambda s, format="%Y-%m-%d": datetime.datetime.strptime(s, format)
 dt2str = lambda dt, format="%Y-%m-%d": dt.strftime(format)
+
+
+def tprint(dic: dict) -> None:
+    """Print dictionary with fancy 'psql' format."""
+    from tabulate import tabulate
+
+    print(tabulate(dic, headers="keys", tablefmt="psql"))
 
 
 def str2bool(s: str | bool) -> bool:
@@ -27,6 +31,17 @@ def str2bool(s: str | bool) -> bool:
         return False
     else:
         raise ValueError(f"Invalid input: {s} (type: {type(s)})")
+
+
+def get_hash_id(*seeds) -> str:
+    """Get hash ID from seeds"""
+    seed = "-".join([str(s) for s in seeds])
+    return md5(seed.encode()).hexdigest()
+
+
+def dump_json(obj: dict, indent: int = 2, ensure_ascii: bool = False) -> str:
+    """Dump dictionary to JSON string."""
+    return json.dumps(obj, indent=indent, ensure_ascii=ensure_ascii)
 
 
 ##################################################
