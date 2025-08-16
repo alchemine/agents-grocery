@@ -15,16 +15,8 @@
   "python.analysis.extraPaths": [],
   "python.testing.pytestEnabled": true,
   "python.testing.pytestArgs": ["-s", "-vv", "tests"],
-  "terminal.integrated.env.osx": {
-    "PYTHONPATH": "${workspaceFolder}",
-    "ENV": "dev"
-  },
   "terminal.integrated.env.linux": {
-    "PYTHONPATH": "${workspaceFolder}",
-    "ENV": "dev"
-  },
-  "terminal.integrated.env.windows": {
-    "PYTHONPATH": "${workspaceFolder}",
+    "PYTHONPATH": "${workspaceFolder}/view",
     "ENV": "dev"
   }
 }

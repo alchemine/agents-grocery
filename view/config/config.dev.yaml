@@ -1,0 +1,9 @@
+streamlit:
+  sidebar_width: "10%"
+  default_container_height: 500
+  min_node_size: 10
+  max_node_size: 50
+
+onboarding:
+  n_tags: 5
+  n_articles_per_category: 5

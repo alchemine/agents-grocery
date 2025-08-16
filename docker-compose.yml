@@ -45,11 +45,11 @@ services:
         <<: *common-build-args
     container_name: agrocery-agents
     hostname: agrocery-agents
-    command: ["sleep", "infinity"]
+    ports:
+      - 18000:8000
     volumes:
       # Dev mode
       - ./agents:/app
-      - ./.env:/app/.env
 
   view:
     <<: *common
@@ -60,10 +60,12 @@ services:
         <<: *common-build-args
     container_name: agrocery-view
     hostname: agrocery-view
-    ports:
-      - 38501:8501
     environment:
       STREAMLIT_SERVER_RUN_ON_SAVE: true
+    ports:
+      - 8501:8501
+    volumes:
+      - ./view:/app
 
 networks:
   default:

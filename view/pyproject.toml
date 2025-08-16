@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "inflow-view"
+version = "0.1.1"
+description = "inflow view project"
+authors = ["alchemine <djyoon0223@gmail.com>"]
+readme = "README.md"
+packages = [{include = "inflo_view"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+addopts = "--show-capture=no"

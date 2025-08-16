@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import SERVICE_NAME, SERVICE_VERSION
+from config import SERVICE_NAME
 from src.common.logger import log_info, log_success
+from src.agents.qa_agent import QAAgent
 
 
 ##################################################
@@ -17,8 +18,7 @@ async def lifespan(app: FastAPI):
     log_info("Starting up...")
 
     # Initialize agents
-    qa_agent = ...
-    app.state.qa_agent = qa_agent
+    app.state.qa_agent = QAAgent()
     log_success("Agent initialized.")
 
     yield
@@ -40,7 +40,7 @@ tags_metadata = [
 ]
 application = FastAPI(
     title=SERVICE_NAME,
-    version=SERVICE_VERSION,
+    version="0.1.1",
     openapi_tags=tags_metadata,
     root_path=getenv("FASTAPI_ROOT_PATH", None),
     lifespan=lifespan,

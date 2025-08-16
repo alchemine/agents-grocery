@@ -17,7 +17,7 @@ async def completions(
 ) -> CompletionsResponse:
     try:
         qa_agent = fastapi_request.app.state.qa_agent
-        data = await qa_agent.ainvoke(request.query, request.user_id)
+        data = qa_agent.invoke(request.query, request.user_id)
         result = CompletionsResponse(success=True, data=data)
     except Exception as e:
         log_error("Unexpected error occurred.")
