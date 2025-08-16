@@ -13,9 +13,9 @@ from src.common.utils import SingletonBase, dump_json
 from src.common.logger import log_info, log_success, log_warning, log_error
 
 
-def create_llm_cache(service_name: str, provider: str):
+def create_llm_cache(service_name: str, model_name: str):
     """Create LLM cache instance for individual model."""
-    cache_key = f"{service_name}_{provider}"
+    cache_key = f"{service_name}_{model_name}"
 
     try:
         from langchain_elasticsearch import ElasticsearchCache
@@ -25,24 +25,30 @@ def create_llm_cache(service_name: str, provider: str):
             "es_user": ELASTICSEARCH_USER,
             "es_password": ELASTICSEARCH_PASSWORD,
             "index_name": CFG.inference.llm.cache.index,
-            "metadata": {"service": service_name, "provider": provider},
+            "metadata": {"service": service_name, "model": model_name},
         }
         cache = ElasticsearchCache(**param)
         log_success(f"LLM cache for {cache_key} using Elasticsearch created.")
     except Exception as e:
-        from langchain_community.cache import SQLiteCache
+        try:
+            from langchain_community.cache import SQLiteCache
 
-        log_warning(f"LLM cache using Elasticsearch failed: {e}\n{dump_json(param)}")
-        db_path = f"llm_cache_{cache_key}.db"
-        cache = SQLiteCache(database_path=db_path)
-        log_success(f"LLM cache for {cache_key} using SQLiteCache created.")
+            log_warning(
+                f"LLM cache using Elasticsearch failed: {e}\n{dump_json(param)}"
+            )
+            db_path = f"llm_cache_{cache_key}.db"
+            cache = SQLiteCache(database_path=db_path)
+            log_success(f"LLM cache for {cache_key} using SQLiteCache created.")
+        except Exception as e:
+            log_warning(f"LLM cache using SQLiteCache failed: {e}")
+            cache = None
 
     return cache
 
 
-def create_embeddings_cache(service_name: str, provider: str):
+def create_embeddings_cache(service_name: str, model_name: str):
     """Create embeddings cache instance for individual model."""
-    cache_key = f"{service_name}_{provider}"
+    cache_key = f"{service_name}_{model_name}"
 
     try:
         from langchain_elasticsearch import ElasticsearchEmbeddingsCache
@@ -52,19 +58,25 @@ def create_embeddings_cache(service_name: str, provider: str):
             "es_user": ELASTICSEARCH_USER,
             "es_password": ELASTICSEARCH_PASSWORD,
             "index_name": CFG.inference.embeddings.cache.index,
-            "metadata": {"service": service_name, "provider": provider},
+            "metadata": {"service": service_name, "model": model_name},
         }
         cache = ElasticsearchEmbeddingsCache(**param)
         log_success(f"Embeddings cache for {cache_key} using Elasticsearch created.")
     except Exception as e:
-        from langchain.storage import LocalFileStore
+        try:
+            from langchain.storage import LocalFileStore
 
-        log_warning(
-            f"Embeddings cache using Elasticsearch failed: {e}\n{dump_json(param)}"
-        )
-        db_path = f"embeddings_cache_{cache_key}.db"
-        cache = LocalFileStore(db_path)
-        log_success(f"Embeddings cache for {cache_key} using LocalFileStore created.")
+            log_warning(
+                f"Embeddings cache using Elasticsearch failed: {e}\n{dump_json(param)}"
+            )
+            db_path = f"embeddings_cache_{cache_key}.db"
+            cache = LocalFileStore(db_path)
+            log_success(
+                f"Embeddings cache for {cache_key} using LocalFileStore created."
+            )
+        except Exception as e:
+            log_warning(f"Embeddings cache using LocalFileStore failed: {e}")
+            cache = None
 
     return cache
 
@@ -96,9 +108,9 @@ class LLMManager(SingletonBase):
         ), f"provider({provider}) should be in CFG.inference.llm.providers"
 
         self.provider = provider
+        self.model_name = self._get_model_name()
         self.model = self._get_model(use_cache)
         self.invoke_config = self._get_invoke_config()
-        self.model_name = self._get_model_name()
 
     def _get_model(self, use_cache: bool) -> ChatOpenAI:
         """Get LLM model."""
@@ -107,7 +119,9 @@ class LLMManager(SingletonBase):
                 "model_config"
             )
             if use_cache:
-                model_config["cache"] = create_llm_cache(SERVICE_NAME, self.provider)
+                cache = create_llm_cache(SERVICE_NAME, self.model_name)
+                if cache is not None:
+                    model_config["cache"] = cache
             return ChatOpenAI(**model_config)
         except Exception:
             log_error(f"Invalid model config: {dump_json(model_config)}")
@@ -139,8 +153,8 @@ class EmbeddingsManager(SingletonBase):
 
     def _init_once(self, provider: str, use_cache: bool = False) -> None:
         self.provider = provider
-        self.model = self._get_model(use_cache)
         self.model_name = self._get_model_name()
+        self.model = self._get_model(use_cache)
 
     def _get_model(self, use_cache: bool) -> OpenAIEmbeddings:
         """Get embeddings model."""
@@ -153,13 +167,15 @@ class EmbeddingsManager(SingletonBase):
             if use_cache:
                 from langchain.embeddings import CacheBackedEmbeddings
 
-                cache = create_embeddings_cache(SERVICE_NAME, self.provider)
-                model = CacheBackedEmbeddings.from_bytes_store(
-                    model,
-                    cache,
-                    namespace=f"{SERVICE_NAME}_{self.provider}",
-                    key_encoder="blake2b",
-                )
+                cache = create_embeddings_cache(SERVICE_NAME, self.model_name)
+                if cache is not None:
+                    model = CacheBackedEmbeddings.from_bytes_store(
+                        model,
+                        cache,
+                        namespace=f"{SERVICE_NAME}_{self.model_name}",
+                        key_encoder="blake2b",
+                    )
+
             return model
         except Exception:
             log_error(f"Invalid embeddings config: {dump_json(model_config)}")

@@ -8,9 +8,15 @@ from src.common.inference import LLMManager, EmbeddingsManager
 
 class BaseAgent(metaclass=ABCMeta):
     def __init__(
-        self, llm_provider: str, embeddings_provider: str, use_llm_cache: bool = False
+        self,
+        llm_provider: str,
+        embeddings_provider: str,
+        use_llm_cache: bool = False,
+        use_embeddings_cache: bool = False,
     ) -> None:
-        self._setup_inference_managers(llm_provider, embeddings_provider, use_llm_cache)
+        self._setup_inference_managers(
+            llm_provider, embeddings_provider, use_llm_cache, use_embeddings_cache
+        )
 
     @abstractmethod
     def invoke(self, *args, **kwargs) -> dict: ...
@@ -19,11 +25,17 @@ class BaseAgent(metaclass=ABCMeta):
     # Private methods
     ############################################################
     def _setup_inference_managers(
-        self, llm_provider: str, embeddings_provider: str, use_llm_cache: bool
+        self,
+        llm_provider: str,
+        embeddings_provider: str,
+        use_llm_cache: bool,
+        use_embeddings_cache: bool,
     ) -> None:
         self.llm_manager = LLMManager(llm_provider, use_llm_cache)
         self.llm = self.llm_manager.model
-        self.embeddings_manager = EmbeddingsManager(embeddings_provider)
+        self.embeddings_manager = EmbeddingsManager(
+            embeddings_provider, use_embeddings_cache
+        )
         self.embeddings = self.embeddings_manager.model
 
     def _extract_text_content(self, message: Any) -> str:

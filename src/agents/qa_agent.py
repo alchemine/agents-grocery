@@ -40,8 +40,11 @@ class QAAgent(BaseAgent):
         llm_provider: str = "gpt_4o_mini",
         embeddings_provider: str = "local",
         use_llm_cache: bool = False,
+        use_embeddings_cache: bool = True,
     ) -> None:
-        super().__init__(llm_provider, embeddings_provider, use_llm_cache)
+        super().__init__(
+            llm_provider, embeddings_provider, use_llm_cache, use_embeddings_cache
+        )
         self.agents = self._build_agents()
         self.graph = self._build_graph()
 
