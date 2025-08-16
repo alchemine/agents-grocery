@@ -37,7 +37,7 @@ class GraphState(MessagesState):
 class QAAgent(BaseAgent):
     def __init__(
         self,
-        llm_provider: str = "gpt_4o_mini",
+        llm_provider: str = "tpu_naver_14b",
         embeddings_provider: str = "local",
         use_llm_cache: bool = False,
         use_embeddings_cache: bool = True,

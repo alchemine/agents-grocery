@@ -8,23 +8,6 @@ x-common: &common
   restart: always
 
 services:
-  agents:
-    <<: *common
-    image: agrocery/agents:0.1.0
-    build:
-      args:
-        <<: *common-build-args
-    container_name: agrocery-agents
-    hostname: agrocery-agents
-    command: ["sleep", "infinity"]
-    volumes:
-      # Dev mode
-      - ./.env:/app/.env
-      - ./app:/app/app
-      - ./config:/app/config
-      - ./src:/app/src
-      - ./tests:/app/tests
-
   init:
     <<: *common
     profiles:
@@ -52,6 +35,35 @@ services:
     hostname: agrocery-clean
     restart: no
     command: ["python", "/app/src/clean.py"]
+
+  agents:
+    <<: *common
+    image: agrocery/agents:0.1.0
+    build:
+      context: agents
+      args:
+        <<: *common-build-args
+    container_name: agrocery-agents
+    hostname: agrocery-agents
+    command: ["sleep", "infinity"]
+    volumes:
+      # Dev mode
+      - ./agents:/app
+      - ./.env:/app/.env
+
+  view:
+    <<: *common
+    image: agrocery/view:0.1.0
+    build:
+      context: view
+      args:
+        <<: *common-build-args
+    container_name: agrocery-view
+    hostname: agrocery-view
+    ports:
+      - 38501:8501
+    environment:
+      STREAMLIT_SERVER_RUN_ON_SAVE: true
 
 networks:
   default:
