@@ -24,7 +24,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, END, StateGraph, MessagesState
 
 from config import ROOT_DIR
-from src.common.logger import log_warning, log_info
+from src.common.logger import log_warning, log_info, log_chat_history
 from src.common.timer import T
 from src.agents.base_agent import BaseAgent
 
@@ -62,6 +62,7 @@ class QAAgent(BaseAgent):
             pass
 
         response = self._extract_text_content(step["messages"][-1])
+        log_chat_history(question, response, user_id, "qa_agent")
         return {"response": response, "contexts": step["contexts"]}
 
     ############################################################

@@ -3,6 +3,7 @@ import random
 
 from src.agents.base_agent import BaseAgent
 from src.common.timer import T
+from src.common.logger import log_chat_history
 
 
 class QuestionGenerator(BaseAgent):
@@ -50,6 +51,7 @@ class QuestionGenerator(BaseAgent):
             config=self.llm_manager.invoke_config,
         )
         text = self._extract_text_content(result)
+        log_chat_history(prompt, text, user_id, "question_generator")
         return {"response": text}
 
 

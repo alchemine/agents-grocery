@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+from json_repair import repair_json
 
 from logstash import LogstashHandler
 
@@ -84,7 +85,7 @@ class JsonLogstashHandler(LogstashHandler):
     def makePickle(self, record):
         """Override to create structured log data."""
         # Parse messages
-        d = json.loads(record.msg)
+        d = repair_json(record.msg, return_objects=True)
         for k in d:
             setattr(record, k, d[k])
         record.msg = ""
@@ -98,7 +99,7 @@ def build_general_logger(
     log_format: str = LOG_FORMAT,
     date_format: str = LOG_DATE_FORMAT,
     log_to_console: bool = True,
-    log_to_file: bool = True,
+    log_to_file: bool = False,
     log_dir: str = "logs",
     file_rotation: str = "midnight",
     file_backup_count: int = 7,
@@ -167,7 +168,7 @@ def build_general_logger(
         )
         logger.addHandler(logstash_handler)
     except Exception:
-        log_warning("Failed to connect to logstash (general_log)")
+        logger.warning("Failed to connect to logstash (general_log)")
 
     return logger
 
@@ -175,10 +176,17 @@ def build_general_logger(
 def build_chat_history_logger(
     logger_name: str = "chat_history",
     log_level: str = "INFO",
+    log_to_console: bool = True,
 ) -> logging.Logger:
     # Create logger
     logger = logging.getLogger(logger_name)
     logger.setLevel(getattr(logging, log_level.upper()))
+
+    # Add console handler
+    if log_to_console:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(color_formatter)
+        logger.addHandler(console_handler)
 
     # Logstash handler
     try:
@@ -189,7 +197,7 @@ def build_chat_history_logger(
         )
         logger.addHandler(logstash_handler)
     except Exception:
-        log_warning("Failed to connect to logstash (chat_history_log)")
+        logger.warning("Failed to connect to logstash (chat_history_log)")
 
     return logger
 
@@ -197,10 +205,17 @@ def build_chat_history_logger(
 def build_api_logger(
     logger_name: str = "api",
     log_level: str = "INFO",
+    log_to_console: bool = True,
 ) -> logging.Logger:
     # Create logger
     logger = logging.getLogger(logger_name)
     logger.setLevel(getattr(logging, log_level.upper()))
+
+    # Add console handler
+    if log_to_console:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(color_formatter)
+        logger.addHandler(console_handler)
 
     # Logstash handler
     try:
@@ -211,7 +226,7 @@ def build_api_logger(
         )
         logger.addHandler(logstash_handler)
     except Exception:
-        log_warning("Failed to connect to logstash (api_log)")
+        logger.warning("Failed to connect to logstash (api_log)")
 
     return logger
 
@@ -331,20 +346,20 @@ def log_api(**kwargs) -> None:
         msg (str): The message to log.
         error (bool): The error status of the API. Defaults to False.
     """
-    return api_logger.info(json.dumps(kwargs))
+    return api_logger.info(json.dumps(kwargs, indent=2, ensure_ascii=False))
 
 
-def log_chat_history(question: str, response: str, user_id: str, chat_idx: int) -> None:
+def log_chat_history(question: str, response: str, user_id: str, agent: str) -> None:
     """Log chat history.
 
     Args:
         question (str): The question to log.
         response (str): The response to log.
         user_id (str): The user id to log.
-        chat_idx (int): The chat index to log.
+        agent (str): The agent to log.
     """
-    d = {"human": question, "ai": response, "user_id": user_id, "chat_idx": chat_idx}
-    return chat_history_logger.info(json.dumps(d))
+    d = {"human": question, "ai": response, "user_id": user_id, "agent": agent}
+    return chat_history_logger.info(json.dumps(d, indent=2, ensure_ascii=False))
 
 
 # Setup default logger
@@ -369,3 +384,7 @@ if __name__ == "__main__":
     log_warning("This is a warning message.")
     for style in STYLES:
         slog(f"This is a {style} message.", style=style)
+    log_chat_history(
+        question="question", response="response", user_id="test", agent="test"
+    )
+    log_api(request="question", response="response", user_id="test", agent="test")

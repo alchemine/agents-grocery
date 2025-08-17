@@ -41,3 +41,21 @@ async def question_generator_completions(
         log_error("Unexpected error occurred.")
         result = CompletionsResponse(success=False, message=str(e))
     return result
+
+
+@router.post(
+    "/bible_chat/completions",
+    response_model=CompletionsResponse,
+    description="Bible Chat Completion",
+)
+async def bible_chat_completions(
+    fastapi_request: Request, request: CompletionsRequest
+) -> CompletionsResponse:
+    try:
+        bible_chat_qa_agent = fastapi_request.app.state.bible_chat_qa_agent
+        data = bible_chat_qa_agent.invoke(request.query, request.user_id)
+        result = CompletionsResponse(success=True, data=data)
+    except Exception as e:
+        log_error("Unexpected error occurred.")
+        result = CompletionsResponse(success=False, message=str(e))
+    return result

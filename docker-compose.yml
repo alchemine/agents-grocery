@@ -65,6 +65,7 @@ services:
     ports:
       - 30000:8501
     volumes:
+      # Dev mode
       - ./view:/app
 
 networks:

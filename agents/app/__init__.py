@@ -8,6 +8,7 @@ from config import SERVICE_NAME
 from src.common.logger import log_info, log_success
 from src.agents.qa_agent import QAAgent
 from src.agents.question_generator import QuestionGenerator
+from src.agents.bible_chat.qa_agent import QAAgent as BibleChatQAAgent
 
 
 ##################################################
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
     # Initialize agents
     app.state.qa_agent = QAAgent()
     app.state.question_generator = QuestionGenerator()
+    app.state.bible_chat_qa_agent = BibleChatQAAgent()
     log_success("Agent initialized.")
 
     yield
@@ -31,6 +33,7 @@ async def lifespan(app: FastAPI):
     # Release agents
     del app.state.qa_agent
     del app.state.question_generator
+    del app.state.bible_chat_qa_agent
     log_success("All agents resources released.")
 
 
