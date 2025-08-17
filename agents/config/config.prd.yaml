@@ -1,6 +1,6 @@
 api:
   port: 8000
-  workers: 1
+  workers: 4
 
 inference:
   llm:

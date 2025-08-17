@@ -15,6 +15,7 @@ from langchain.retrievers.document_compressors import (
     # LLMChainFilter,
     # LLMListwiseRerank,
 )
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_community.document_transformers import EmbeddingsRedundantFilter
 from langchain_community.retrievers import TavilySearchAPIRetriever
@@ -32,6 +33,7 @@ from src.agents.base_agent import BaseAgent
 class GraphState(MessagesState):
     question: str
     contexts: dict
+    references: dict
 
 
 class QAAgent(BaseAgent):
@@ -63,7 +65,7 @@ class QAAgent(BaseAgent):
 
         response = self._extract_text_content(step["messages"][-1])
         log_chat_history(question, response, user_id, "qa_agent")
-        return {"response": response, "contexts": step["contexts"]}
+        return {"response": response, "references": step["references"]}
 
     ############################################################
     # Private methods
@@ -96,29 +98,23 @@ class QAAgent(BaseAgent):
 
     def _build_agents(self) -> dict:
         """Build agents."""
-
-        def format_input(state: GraphState) -> dict:
-            contexts_group = []
-            for id, docs in state["contexts"].items():
-                contexts = []
-                for doc in docs:
-                    doc_format = f"### Metadata\n{doc['metadata']}\n\n### Content\n{doc['page_content']}"
-                    contexts.append(doc_format)
-                contexts = "\n---\n".join(contexts)
-                contexts_group.append(f"<{id}>\n{contexts}\n</{id}>")
-
-            return {"contexts": "\n\n".join(contexts_group).strip()}
-
         prompt = RunnablePassthrough.assign(
-            contexts=format_input,
+            global_context=self._get_global_context,
+            contexts=self._format_contexts,
         ) | ChatPromptTemplate.from_messages(
             [
                 (
                     "user",
                     dedent(
                         """
-                        Answer the question based only on the following contexts:
+                        다음 <contexts>를 기반으로 질문에 답변하세요.
+                        논문과 같이 참고한 자료의 번호를 [[*]] 형태로 적어주세요. (예시: "...[[1]] ...[[2,3]]").
+                        참고자료 번호는 반드시 contexts에 있는 내용과 동일해야합니다.
                         
+                        <global_context>
+                        {global_context}
+                        </global_context>
+
                         <contexts>
                         {contexts}
                         </contexts>
@@ -131,7 +127,7 @@ class QAAgent(BaseAgent):
                 ),
             ]
         )
-        response_generator = prompt | self.llm
+        response_generator = prompt | self.llm | StrOutputParser()
         return {
             "response_generator": response_generator,
         }
@@ -181,11 +177,14 @@ class QAAgent(BaseAgent):
         @T
         def generate_response(state: GraphState) -> GraphState:
             """Generate response."""
+            response = self._invoke_agent("response_generator", state, log_prompt=True)
+            url_list = [
+                doc["metadata"]["source"] for doc in state["contexts"]["web_search"]
+            ]
+            response, references = self._match_references(response, url_list)
             return {
-                "messages": [
-                    state["question"],
-                    self.agents["response_generator"].invoke(state),
-                ]
+                "messages": [state["question"], response],
+                "references": references,
             }
 
         return {

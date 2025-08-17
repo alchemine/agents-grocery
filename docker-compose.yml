@@ -1,7 +1,6 @@
 x-common: &common
   build:
     args: &common-build-args
-      ENV: dev
       UID: ${UID}
   env_file: .env
   user: ${UID}
@@ -17,6 +16,7 @@ services:
       context: setup
       args:
         <<: *common-build-args
+        ENV: prd
     container_name: agrocery-init
     hostname: agrocery-init
     restart: no
@@ -31,42 +31,77 @@ services:
       context: setup
       args:
         <<: *common-build-args
+        ENV: prd
     container_name: agrocery-clean
     hostname: agrocery-clean
     restart: no
     command: ["python", "/app/src/clean.py"]
 
-  agents:
+  #########################################################
+  # Development
+  #########################################################
+  agents-dev:
     <<: *common
     image: agrocery/agents:0.1.0
     build:
       context: agents
       args:
         <<: *common-build-args
-    container_name: agrocery-agents
-    hostname: agrocery-agents
+        ENV: dev
+    container_name: agrocery-agents-dev
+    hostname: agrocery-agents-dev
     ports:
-      - 20000:8000
+      - 10000:8000
     volumes:
-      # Dev mode
       - ./agents:/app
 
-  view:
+  view-dev:
     <<: *common
     image: agrocery/view:0.1.0
     build:
       context: view
       args:
         <<: *common-build-args
-    container_name: agrocery-view
-    hostname: agrocery-view
+        ENV: dev
+    container_name: agrocery-view-dev
+    hostname: agrocery-view-dev
     environment:
       STREAMLIT_SERVER_RUN_ON_SAVE: true
     ports:
-      - 30000:8501
+      - 10001:8501
     volumes:
-      # Dev mode
       - ./view:/app
+
+  #########################################################
+  # Production
+  #########################################################
+  agents-prd:
+    <<: *common
+    image: agrocery/agents:0.1.0
+    build:
+      context: agents
+      args:
+        <<: *common-build-args
+        ENV: prd
+    container_name: agrocery-agents-prd
+    hostname: agrocery-agents-prd
+    ports:
+      - 11000:8000
+
+  view-prd:
+    <<: *common
+    image: agrocery/view:0.1.0
+    build:
+      context: view
+      args:
+        <<: *common-build-args
+        ENV: prd
+    container_name: agrocery-view-prd
+    hostname: agrocery-view-prd
+    environment:
+      STREAMLIT_SERVER_RUN_ON_SAVE: true
+    ports:
+      - 11001:8501
 
 networks:
   default:

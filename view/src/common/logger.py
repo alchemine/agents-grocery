@@ -185,7 +185,6 @@ def build_chat_history_logger(
     # Add console handler
     if log_to_console:
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(color_formatter)
         logger.addHandler(console_handler)
 
     # Logstash handler
@@ -214,7 +213,6 @@ def build_api_logger(
     # Add console handler
     if log_to_console:
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(color_formatter)
         logger.addHandler(console_handler)
 
     # Logstash handler

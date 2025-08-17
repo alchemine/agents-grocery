@@ -8,14 +8,23 @@ agents:
   qa_agent:
     agent_name: "🔍 웹 검색 기반 챗봇"
     onboarding_message: "🔍 무엇이 궁금하신가요? 무엇이든 물어보세요!"
-    example_query: "내일 서울 날씨는 어때?"
+    example_query:
+      - "내일 서울 날씨는 어때?"
+      - "어제 삼성전자 종가가 얼마였어?"
+      - "오늘 환율은 어떻게 되나요?"
   
   question_generator:
     agent_name: "❓ 질문 생성기"
     onboarding_message: "❓ 어떤 질문을 생성하고 싶으신가요?"
-    example_query: "AI와 관련된 질문을 생성해줘"
+    example_query:
+      - "마케팅과 관련된 질문을 생성해줘"
+      - "건강에 관한 일상 질문들을 생성해줘"
+      - "프로그래밍 면접 질문을 만들어줘"
 
   bible_chat:
     agent_name: "✝️ 기독교 질문/상담 챗봇"
     onboarding_message: "✝️ 기독교 혹은 성경에 대한 질문, 삶의 고민이 있으신가요?"
-    example_query: "기독교를 믿어야 하는 이유가 뭔가요?"
+    example_query:
+      - "기독교를 믿어야 하는 이유가 뭔가요?"
+      - "죄란 무엇인가요?"
+      - "선과 악은 정해져있는건가요?"

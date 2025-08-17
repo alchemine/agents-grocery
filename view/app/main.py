@@ -1,11 +1,7 @@
-from typing import Literal
-
 import streamlit as st
-from streamlit_extras.bottom_container import bottom
 
 from config import CFG
 from src.common.request_utils import safe_request
-
 
 CFG_STREAMLIT = CFG.streamlit
 CFG_AGENTS = CFG.agents
@@ -29,8 +25,9 @@ class App:
     def run(self) -> None:
         """Run the app"""
         # Render the sidebar
-        with st.sidebar:
-            st.text_input("User ID", key="user_id")
+        # TODO: Input for User ID
+        # with st.sidebar:
+        #     st.text_input("User ID", key="user_id")
 
         # Render the tabs for each agent
         agent_names = list(CFG.agents)
@@ -38,6 +35,7 @@ class App:
             CFG_AGENTS[agent_name].agent_name for agent_name in agent_names
         ]
 
+        st.title("Agent/Chatbot Collections")
         agent_tabs = st.tabs(agent_names_disp)
         for i, agent_name in enumerate(agent_names):
             with agent_tabs[i]:
@@ -54,7 +52,10 @@ class App:
 
         # Render the chat input
         query_key = f"{agent_name}_query"
-        if query := st.chat_input(CFG_AGENTS[agent_name].example_query, key=query_key):
+
+        # TODO: use random example query
+        example_query = CFG_AGENTS[agent_name].example_query[0]
+        if query := st.chat_input(example_query, key=query_key):
             with st.spinner("답변을 생성하는 중입니다.."):
                 result = self._request_response(agent_name, query)
             self._append_message(agent_name, query, result["response"])
