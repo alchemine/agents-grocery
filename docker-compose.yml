@@ -46,7 +46,7 @@ services:
     container_name: agrocery-agents
     hostname: agrocery-agents
     ports:
-      - 18000:8000
+      - 20000:8000
     volumes:
       # Dev mode
       - ./agents:/app
@@ -63,7 +63,7 @@ services:
     environment:
       STREAMLIT_SERVER_RUN_ON_SAVE: true
     ports:
-      - 8501:8501
+      - 30000:8501
     volumes:
       - ./view:/app
 

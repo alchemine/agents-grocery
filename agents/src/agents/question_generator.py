@@ -5,13 +5,15 @@ from src.agents.base_agent import BaseAgent
 from src.common.timer import T
 
 
-class ClientAgent(BaseAgent):
+class QuestionGenerator(BaseAgent):
     def __init__(
         self,
         llm_provider: str = "virtual_client",
         embeddings_provider: str = "local",
     ) -> None:
         super().__init__(llm_provider, embeddings_provider)
+
+        # TODO: add more persona, select persona in invoke time
         self.persona = [
             "computer scientist",
             "software engineer",
@@ -52,5 +54,5 @@ class ClientAgent(BaseAgent):
 
 
 if __name__ == "__main__":
-    agent = ClientAgent()
+    agent = QuestionGenerator()
     print(agent.invoke(""))

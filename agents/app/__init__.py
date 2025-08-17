@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import SERVICE_NAME
 from src.common.logger import log_info, log_success
 from src.agents.qa_agent import QAAgent
+from src.agents.question_generator import QuestionGenerator
 
 
 ##################################################
@@ -19,6 +20,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize agents
     app.state.qa_agent = QAAgent()
+    app.state.question_generator = QuestionGenerator()
     log_success("Agent initialized.")
 
     yield
@@ -28,7 +30,8 @@ async def lifespan(app: FastAPI):
 
     # Release agents
     del app.state.qa_agent
-    log_success("Agent resources released.")
+    del app.state.question_generator
+    log_success("All agents resources released.")
 
 
 ##################################################
@@ -36,7 +39,8 @@ async def lifespan(app: FastAPI):
 ##################################################
 tags_metadata = [
     {"name": "healthcheck", "description": "HealthCheck API"},
-    {"name": "chat", "description": "Chat API"},
+    {"name": "agents", "description": "Agents API"},
+    {"name": "test", "description": "Test API"},
 ]
 application = FastAPI(
     title=SERVICE_NAME,
@@ -63,12 +67,13 @@ from app.middlewares import *
 ##################################################
 # Routers
 ##################################################
-from app.routers import healthcheck, chat
+from app.routers import healthcheck, agents, test
 
 
 router_infos = [
     (healthcheck.router, "healthcheck"),
-    (chat.router, "chat"),
+    (agents.router, "agents"),
+    (test.router, "test"),
 ]
 for router_info in router_infos:
     r = router_info[0]
