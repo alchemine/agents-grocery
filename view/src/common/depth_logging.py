@@ -8,7 +8,6 @@ from collections import defaultdict
 from functools import wraps
 
 from src.common.timer import Timer
-from src.common.logger import slog
 
 
 class DepthManager(contextlib.ContextDecorator):
@@ -49,7 +48,7 @@ def D(fn):
         ...     # do something
     """
 
-    def _print_fn(name, args, fn):
+    def _format_name(args, fn):
         """Print depth of code.
 
         Args:
@@ -57,24 +56,22 @@ def D(fn):
             args (tuple): Arguments of the function
             fn (callable): Function
         """
-        logs = f"{'  ' + name:15}| "
-        if len(args) > 0 and isinstance(
-            args[0], object
-        ):  # if function is method or main function
-            logs = f"{logs}{fn.__module__.split('.')[-1]}."
-        slog(f"{logs}{fn.__name__}()")
-
-    @wraps(fn)
-    def _log(*args, **kwargs):
         name = ".".join(
             [str(DepthManager.depths[d]) for d in range(1, DepthManager.depth + 1)]
         )
-        _print_fn(name, args, fn)
+        index = f"{name:17}| "
+        if len(args) > 0 and isinstance(
+            args[0], object
+        ):  # if function is method or main function
+            index = f"{index}{fn.__module__.split('.')[-1]}."
+        fn_name = f"{fn.__name__}()"
+        return f"{index}{fn_name}"
 
+    @wraps(fn)
+    def _log(*args, **kwargs):
         with DepthManager():
-            with Timer(name):
+            with Timer(_format_name(args, fn)):
                 rst = fn(*args, **kwargs)
-
         return rst
 
     return _log

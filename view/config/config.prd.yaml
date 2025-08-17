@@ -4,6 +4,11 @@ streamlit:
   min_node_size: 10
   max_node_size: 50
 
-onboarding:
-  n_tags: 5
-  n_articles_per_category: 5
+agents:
+  qa_agent:
+    agent_name: "🔍 웹 검색 기반 챗봇"
+    onboarding_message: "🔍 무엇이 궁금하신가요? 무엇이든 물어보세요!"
+  
+  question_generator:
+    agent_name: "❓ 질문 생성기"
+    onboarding_message: "❓ 어떤 질문을 생성하고 싶으신가요?"

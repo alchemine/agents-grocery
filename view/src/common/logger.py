@@ -2,10 +2,15 @@
 
 import re
 import json
-from datetime import datetime
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Literal
+from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+
+from logstash import LogstashHandler
+
+from config import CFG
 
 
 # https://pkg.go.dev/github.com/shafiqaimanx/pastax/colors
@@ -40,12 +45,13 @@ STYLES = {
 LOG_FORMAT = "%(asctime)s | %(name)-12s | %(levelname)-8s | %(message)s"
 # LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+ANSI_PATTERN = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 class ANSIColorRemovingFormatter(logging.Formatter):
     def format(self, record):
         formatted = super().format(record)
-        return re.sub(r"\x1b\[[0-9;]*m", "", formatted)
+        return ANSI_PATTERN.sub("", formatted)
 
 
 class TqdmLogger:
@@ -56,8 +62,38 @@ class TqdmLogger:
         pass
 
 
-def setup_advanced_logger(
-    logger_name: str = None,
+class GeneralLogstashHandler(LogstashHandler):
+    """Custom Logstash handler for general logs."""
+
+    def __init__(self, host, port, version=1):
+        super().__init__(host, port, version)
+
+    def makePickle(self, record):
+        """Override to create structured log data."""
+        record.msg = ANSI_PATTERN.sub("", str(record.msg))
+        raw_result = self.formatter.format(record)
+        return raw_result
+
+
+class JsonLogstashHandler(LogstashHandler):
+    """Custom Logstash handler for JSON logs."""
+
+    def __init__(self, host, port, version=1):
+        super().__init__(host, port, version)
+
+    def makePickle(self, record):
+        """Override to create structured log data."""
+        # Parse messages
+        d = json.loads(record.msg)
+        for k in d:
+            setattr(record, k, d[k])
+        record.msg = ""
+        raw_result = self.formatter.format(record)
+        return raw_result
+
+
+def build_general_logger(
+    logger_name: str = "general",
     log_level: str = "INFO",
     log_format: str = LOG_FORMAT,
     date_format: str = LOG_DATE_FORMAT,
@@ -122,6 +158,61 @@ def setup_advanced_logger(
         file_handler.flush = lambda: file_handler.stream.flush()
         logger.addHandler(file_handler)
 
+    # Logstash handler
+    try:
+        logstash_handler = GeneralLogstashHandler(
+            host=CFG.logstash.host,
+            port=CFG.logstash.general_log_port,
+            version=1,
+        )
+        logger.addHandler(logstash_handler)
+    except Exception:
+        log_warning("Failed to connect to logstash (general_log)")
+
+    return logger
+
+
+def build_chat_history_logger(
+    logger_name: str = "chat_history",
+    log_level: str = "INFO",
+) -> logging.Logger:
+    # Create logger
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(getattr(logging, log_level.upper()))
+
+    # Logstash handler
+    try:
+        logstash_handler = JsonLogstashHandler(
+            host=CFG.logstash.host,
+            port=CFG.logstash.chat_history_log_port,
+            version=1,
+        )
+        logger.addHandler(logstash_handler)
+    except Exception:
+        log_warning("Failed to connect to logstash (chat_history_log)")
+
+    return logger
+
+
+def build_api_logger(
+    logger_name: str = "api",
+    log_level: str = "INFO",
+) -> logging.Logger:
+    # Create logger
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(getattr(logging, log_level.upper()))
+
+    # Logstash handler
+    try:
+        logstash_handler = JsonLogstashHandler(
+            host=CFG.logstash.host,
+            port=CFG.logstash.api_log_port,
+            version=1,
+        )
+        logger.addHandler(logstash_handler)
+    except Exception:
+        log_warning("Failed to connect to logstash (api_log)")
+
     return logger
 
 
@@ -140,7 +231,11 @@ def pretty_dict(s: str) -> str:
 
 
 def slog(
-    msg: str, style: str | None = None, level: str = "info", dump: bool = True, **kwargs
+    msg: str | dict,
+    style: str | None = None,
+    level: Literal["info", "error", "warning", "debug"] = "info",
+    dump: bool = True,
+    **kwargs,
 ) -> str:
     """Stylish log message.
 
@@ -160,12 +255,12 @@ def slog(
     except:
         pass
 
-    stylish_msg = f"{STYLES['BOLD']}{STYLES[style]}{msg}{STYLES['ENDC']}"
+    stylish_msg = f"{STYLES['BOLD']}{STYLES.get(style, "")}{msg}{STYLES['ENDC']}"
     match level:
         case "info":
             logger.info(stylish_msg, **kwargs)
         case "error":
-            logger.error(stylish_msg, **kwargs)
+            logger.exception(stylish_msg, **kwargs)
         case "warning":
             logger.warning(stylish_msg, **kwargs)
         case "debug":
@@ -176,17 +271,20 @@ def slog(
     return stylish_msg
 
 
-def log_info(msg: str, dump: bool = True, **kwargs) -> str:
+def log_info(msg: str | dict, dump: bool = True, prefix: str = "", **kwargs) -> str:
     """Stylish info log.
 
     Args:
         msg (str): The message to log.
         dump (bool): The dump flag. Defaults to True.
     """
+    if prefix:
+        prefix = f"[{prefix}]"
+        msg = f"{prefix:9} {msg}"
     return slog(msg, style="GREEN", dump=dump, **kwargs)
 
 
-def log_success(msg: str, dump: bool = True, prefix: bool = True, **kwargs) -> str:
+def log_success(msg: str | dict, dump: bool = True, prefix: str = "", **kwargs) -> str:
     """Stylish success log.
 
     Args:
@@ -195,17 +293,12 @@ def log_success(msg: str, dump: bool = True, prefix: bool = True, **kwargs) -> s
         prefix (bool): The prefix flag. Defaults to True.
     """
     if prefix:
-        msg = f"[SUCCESS] {msg}"
+        prefix = f"[{prefix}]"
+        msg = f"{prefix:9} {msg}"
     return slog(msg, style="OKBLUE", dump=dump, **kwargs)
 
 
-def log_error(
-    msg: str,
-    dump: bool = False,
-    prefix: bool = True,
-    exc_info: Exception | None = None,
-    **kwargs,
-) -> str:
+def log_error(msg: str | dict, dump: bool = True, prefix: str = "", **kwargs) -> str:
     """Stylish error log.
 
     Args:
@@ -213,13 +306,12 @@ def log_error(
         dump (bool): The dump flag. Defaults to True.
     """
     if prefix:
-        msg = f"[FAILED] {msg}"
-    return slog(
-        msg, style="TOMATO", level="error", dump=dump, exc_info=exc_info, **kwargs
-    )
+        prefix = f"[{prefix}]"
+        msg = f"{prefix:9} {msg}"
+    return slog(msg, style="TOMATO", level="error", dump=dump, **kwargs)
 
 
-def log_warning(msg: str, dump: bool = False, prefix: bool = True, **kwargs) -> str:
+def log_warning(msg: str | dict, dump: bool = True, prefix: str = "", **kwargs) -> str:
     """Stylish warning log.
 
     Args:
@@ -227,27 +319,38 @@ def log_warning(msg: str, dump: bool = False, prefix: bool = True, **kwargs) -> 
         dump (bool): The dump flag. Defaults to True.
     """
     if prefix:
-        msg = f"[WARNING] {msg}"
+        prefix = f"[{prefix}]"
+        msg = f"{prefix:9} {msg}"
     return slog(msg, style="GRAPEFRUIT", level="warning", dump=dump, **kwargs)
 
 
-def log_api(msg: str, error: bool = False, **kwargs) -> None:
+def log_api(**kwargs) -> None:
     """Stylish api log.
 
     Args:
         msg (str): The message to log.
         error (bool): The error status of the API. Defaults to False.
     """
-    if error:
-        log_error("Request API:")
-        log_error(msg, dump=True)
-    else:
-        log_success("Request API:")
-        log_success(msg)
+    return api_logger.info(json.dumps(kwargs))
+
+
+def log_chat_history(question: str, response: str, user_id: str, chat_idx: int) -> None:
+    """Log chat history.
+
+    Args:
+        question (str): The question to log.
+        response (str): The response to log.
+        user_id (str): The user id to log.
+        chat_idx (int): The chat index to log.
+    """
+    d = {"human": question, "ai": response, "user_id": user_id, "chat_idx": chat_idx}
+    return chat_history_logger.info(json.dumps(d))
 
 
 # Setup default logger
-logger = setup_advanced_logger()
+logger = build_general_logger()
+chat_history_logger = build_chat_history_logger()
+api_logger = build_api_logger()
 
 
 # Disable logging for specific modules
@@ -264,6 +367,5 @@ if __name__ == "__main__":
     log_success("This is a success message.")
     log_error("This is an error message.")
     log_warning("This is a warning message.")
-    log_api("This is an API message.")
     for style in STYLES:
         slog(f"This is a {style} message.", style=style)
