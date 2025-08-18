@@ -4,6 +4,7 @@ Commonly used functions and classes are here.
 """
 
 import json
+import textwrap
 from hashlib import md5
 from datetime import datetime
 from abc import ABCMeta, abstractmethod
@@ -42,6 +43,11 @@ def get_hash_id(*seeds) -> str:
 def dump_json(obj: dict, indent: int = 2, ensure_ascii: bool = False) -> str:
     """Dump dictionary to JSON string."""
     return json.dumps(obj, indent=indent, ensure_ascii=ensure_ascii)
+
+
+def dedent(s: str) -> str:
+    """Dedent string."""
+    return textwrap.dedent(s).strip()
 
 
 ##################################################
