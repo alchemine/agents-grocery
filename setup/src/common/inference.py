@@ -1,5 +1,7 @@
 """Inference module."""
 
+import re
+import tiktoken
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from config import (
@@ -85,8 +87,10 @@ class LLMManager(SingletonBase):
     """LLM manager.
 
     Attributes:
+        provider: provider name
+        model_name: model name
         model: LLM model
-        invoke_config: Invoke config for LLM
+        batch_config: batch config for LLM
 
     References:
         - Prompt optimizer: https://platform.openai.com/chat/edit?models=gpt-5&optimize=true
@@ -110,7 +114,7 @@ class LLMManager(SingletonBase):
         self.provider = provider
         self.model_name = self._get_model_name()
         self.model = self._get_model(use_cache)
-        self.invoke_config = self._get_invoke_config()
+        self.batch_config = self._get_batch_config()
 
     def _get_model(self, use_cache: bool) -> ChatOpenAI:
         """Get LLM model."""
@@ -127,24 +131,61 @@ class LLMManager(SingletonBase):
             log_error(f"Invalid model config: {dump_json(model_config)}")
             raise ValueError(f"No model config found for {self.provider}")
 
-    def _get_invoke_config(self) -> dict:
-        """Get invoke config for LLM."""
+    def _get_batch_config(self) -> dict:
+        """Get batch config for LLM."""
         try:
-            return CFG.inference.llm.providers[self.provider].invoke_config
+            return CFG.inference.llm.providers[self.provider].batch_config
         except Exception:
-            log_info(f"No invoke config found for {self.provider}")
+            log_info(f"No batch config found for {self.provider}")
             return {}
 
     def _get_model_name(self) -> str:
         """Get model name."""
         return CFG.inference.llm.providers[self.provider].model_config.model
 
+    def truncate_text_by_tokens(
+        self, text: str, max_tokens: int | None = None, model: str | None = None
+    ) -> str:
+        """Truncate text to fit within token limit"""
+        if max_tokens is None:
+            max_tokens = CFG.inference.llm.providers[
+                self.provider
+            ].model_config.max_tokens
+
+        try:
+            if model is None:
+                model = self.model_name
+            encoding = tiktoken.encoding_for_model(model)
+            tokens = encoding.encode(text)
+        except Exception:
+            model = "gpt-4o-mini"
+            encoding = tiktoken.encoding_for_model(model)
+            tokens = encoding.encode(text)
+
+        if len(tokens) > max_tokens:
+            truncated_tokens = tokens[:max_tokens]
+            truncated_text = encoding.decode(truncated_tokens)
+
+            # 문장이 중간에 잘리지 않도록 마지막 완전한 문장까지만 반환
+            # TODO: 문장 분리 방법 개선
+            sentences = re.split(r"[.!?]+\s+", truncated_text)
+            if len(sentences) > 1:
+                result = ". ".join(sentences[:-1]) + "."
+            else:
+                result = truncated_text
+        else:
+            result = text
+        return result
+
 
 class EmbeddingsManager(SingletonBase):
     """Embeddings manager.
 
     Attributes:
+        provider: provider name
+        model_name: model name
         model: Embeddings model
+        chunk_size: chunk size (max concurrency)
     """
 
     @classmethod
@@ -155,6 +196,7 @@ class EmbeddingsManager(SingletonBase):
         self.provider = provider
         self.model_name = self._get_model_name()
         self.model = self._get_model(use_cache)
+        self.chunk_size = self._get_chunk_size()
 
     def _get_model(self, use_cache: bool) -> OpenAIEmbeddings:
         """Get embeddings model."""
@@ -184,6 +226,10 @@ class EmbeddingsManager(SingletonBase):
     def _get_model_name(self) -> str:
         """Get model name."""
         return CFG.inference.embeddings.providers[self.provider].model_config.model
+
+    def _get_chunk_size(self) -> int:
+        """Get chunk size."""
+        return CFG.inference.embeddings.providers[self.provider].chunk_size
 
 
 if __name__ == "__main__":
