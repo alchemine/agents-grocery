@@ -102,6 +102,10 @@ CFG = FallbackConfig(
 
 
 if __name__ == "__main__":
+    from pprint import pprint
+
+    pprint(CFG)
+
     print(
         f"""
 ENV: {ENV}
@@ -110,6 +114,5 @@ ELASTICSEARCH_URL: {ELASTICSEARCH_URL}
 ELASTICSEARCH_USER: {ELASTICSEARCH_USER}
 ELASTICSEARCH_PASSWORD: {ELASTICSEARCH_PASSWORD}
 ROOT_DIR: {ROOT_DIR}
-CFG: {CFG}
 """
     )

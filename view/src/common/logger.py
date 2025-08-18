@@ -163,12 +163,12 @@ def build_general_logger(
     try:
         logstash_handler = GeneralLogstashHandler(
             host=CFG.logstash.host,
-            port=CFG.logstash.general_log_port,
+            port=CFG.logstash.port.general_log,
             version=1,
         )
         logger.addHandler(logstash_handler)
-    except Exception:
-        logger.warning("Failed to connect to logstash (general_log)")
+    except Exception as e:
+        logger.warning(f"Failed to connect to logstash (general_log): {e}")
 
     return logger
 
@@ -191,12 +191,12 @@ def build_chat_history_logger(
     try:
         logstash_handler = JsonLogstashHandler(
             host=CFG.logstash.host,
-            port=CFG.logstash.chat_history_log_port,
+            port=CFG.logstash.port.chat_history_log,
             version=1,
         )
         logger.addHandler(logstash_handler)
-    except Exception:
-        logger.warning("Failed to connect to logstash (chat_history_log)")
+    except Exception as e:
+        logger.warning(f"Failed to connect to logstash (chat_history_log): {e}")
 
     return logger
 
@@ -219,12 +219,12 @@ def build_api_logger(
     try:
         logstash_handler = JsonLogstashHandler(
             host=CFG.logstash.host,
-            port=CFG.logstash.api_log_port,
+            port=CFG.logstash.port.api_log,
             version=1,
         )
         logger.addHandler(logstash_handler)
-    except Exception:
-        logger.warning("Failed to connect to logstash (api_log)")
+    except Exception as e:
+        logger.warning(f"Failed to connect to logstash (api_log): {e}")
 
     return logger
 
