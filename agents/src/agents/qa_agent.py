@@ -3,7 +3,6 @@
 import os
 from os.path import join
 from typing import Any
-from textwrap import dedent
 
 from langchain.prompts import ChatPromptTemplate
 from langchain.retrievers import ContextualCompressionRetriever
@@ -25,8 +24,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, END, StateGraph, MessagesState
 
 from config import ROOT_DIR
-from src.common.logger import log_warning, log_info, log_chat_history
 from src.common.timer import T
+from src.common.logger import log_warning, log_info, log_chat_history
+from src.common.utils import dedent
 from src.agents.base_agent import BaseAgent
 
 
@@ -47,7 +47,7 @@ class QAAgent(BaseAgent):
         super().__init__(
             llm_provider, embeddings_provider, use_llm_cache, use_embeddings_cache
         )
-        self.agents = self._build_agents()
+        self.runnables = self._build_runnables()
         self.graph = self._build_graph()
 
     ############################################################
@@ -96,20 +96,20 @@ class QAAgent(BaseAgent):
             "web_search": web_search_retriever,
         }
 
-    def _build_agents(self) -> dict:
-        """Build agents."""
+    def _build_runnables(self) -> dict:
+        """Build runnables."""
         prompt = RunnablePassthrough.assign(
             global_context=self._get_global_context,
             contexts=self._format_contexts,
         ) | ChatPromptTemplate.from_messages(
             [
                 (
-                    "user",
+                    "system",
                     dedent(
                         """
-                        다음 <contexts>를 기반으로 질문에 답변하세요.
+                        주어진 자료를 참고하여 사용자 질문에 답변하세요.
                         논문과 같이 참고한 자료의 번호를 [[*]] 형태로 적어주세요. (예시: "...[[1]] ...[[2,3]]").
-                        참고자료 번호는 반드시 contexts에 있는 내용과 동일해야합니다.
+                        참고자료 번호는 반드시 <contexts>에 있는 내용과 동일해야합니다.
                         
                         <global_context>
                         {global_context}
@@ -118,7 +118,14 @@ class QAAgent(BaseAgent):
                         <contexts>
                         {contexts}
                         </contexts>
-
+                        """
+                    ),
+                ),
+                ("placeholder", "{messages}"),
+                (
+                    "user",
+                    dedent(
+                        """
                         <question>
                         {question}
                         </question>
@@ -177,7 +184,9 @@ class QAAgent(BaseAgent):
         @T
         def generate_response(state: GraphState) -> GraphState:
             """Generate response."""
-            response = self._invoke_agent("response_generator", state, log_prompt=True)
+            response = self._invoke_runnable(
+                "response_generator", state, log_prompt=True
+            )
             url_list = [
                 doc["metadata"]["source"] for doc in state["contexts"]["web_search"]
             ]

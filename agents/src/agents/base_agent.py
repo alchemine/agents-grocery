@@ -79,13 +79,12 @@ class BaseAgent(metaclass=ABCMeta):
     def _match_references(
         text: str, url_list: list[str], blacklist: list[str] = ["https://tavily.com"]
     ) -> tuple[str, dict]:
-        # 참고 자료 번호 추출 (예: [[3,4]] 형식)
+        # 참고 자료 번호 추출 (예: [[3,4]] 또는 [[3], [4]] 형식)
         references = []
         for match in re.finditer(r"\[\[([^\]]+)\]\]", text):
-            # 쉼표로 구분된 숫자들을 개별 참조로 분리
-            nums = match.group(1).split(",")
-            for num in nums:
-                references.append(int(num.strip()))
+            # 쉼표 또는 대괄호 등으로 구분된 숫자들을 개별 참조로 분리
+            for num in re.findall(r"\d+", match.group(1)):
+                references.append(int(num))
 
         # 참고 자료 순서대로 정렬 (등장 순서 유지)
         unique_references = list(dict.fromkeys(references))
@@ -114,10 +113,9 @@ class BaseAgent(metaclass=ABCMeta):
 
         # 텍스트 내 참고 자료 번호 변환
         def replace_references(match):
-            nums = match.group(1).split(",")
             new_ref_nums = set()
-            for num_str in nums:
-                num = int(num_str.strip())
+            for num_str in re.findall(r"\d+", match.group(1)):
+                num = int(num_str)
                 if num in reference_mapping:
                     new_ref_nums.add(reference_mapping[num])
 
@@ -141,16 +139,16 @@ class BaseAgent(metaclass=ABCMeta):
             """
         ).strip()
 
-    async def _ainvoke_agent(
-        self, agent_id: str, input: dict, log_prompt: bool = False
+    async def _ainvoke_runnable(
+        self, runnable_id: str, input: dict, log_prompt: bool = False
     ) -> Any:
         """Invoke the agent."""
         # Invoke the agent
-        if agent_id not in self.agents:
-            msg = f"Invalid agent id: {agent_id}"
+        if runnable_id not in self.runnables:
+            msg = f"Invalid agent id: {runnable_id}"
             log_error(msg)
             raise ValueError(msg)
-        agent = self.agents[agent_id]
+        agent = self.runnables[runnable_id]
         result = await agent.ainvoke(input)
 
         # Print the prompts and the result
@@ -174,16 +172,16 @@ class BaseAgent(metaclass=ABCMeta):
 
         return result
 
-    def _invoke_agent(
-        self, agent_id: str, input: dict, log_prompt: bool = False
+    def _invoke_runnable(
+        self, runnable_id: str, input: dict, log_prompt: bool = False
     ) -> Any:
         """Invoke the agent."""
         # Invoke the agent
-        if agent_id not in self.agents:
-            msg = f"Invalid agent id: {agent_id}"
+        if runnable_id not in self.runnables:
+            msg = f"Invalid agent id: {runnable_id}"
             log_error(msg)
             raise ValueError(msg)
-        agent = self.agents[agent_id]
+        agent = self.runnables[runnable_id]
         result = agent.invoke(input)
 
         # Print the prompts and the result

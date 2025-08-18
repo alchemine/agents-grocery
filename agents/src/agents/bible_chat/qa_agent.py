@@ -40,59 +40,21 @@ class QAAgent(BaseAgent):
         super().__init__(
             llm_provider, embeddings_provider, use_llm_cache, use_embeddings_cache
         )
+        self.runnables = self._build_runnables()
         self.graph = self._build_graph()
 
-    def match_references(self, text, url_list):
-        import re
-
-        # 참고 자료 번호 추출 (예: [[3,4]] 형식)
-        references = []
-        for match in re.finditer(r"\[\[([^\]]+)\]\]", text):
-            # 쉼표로 구분된 숫자들을 개별 참조로 분리
-            nums = match.group(1).split(",")
-            for num in nums:
-                references.append(int(num.strip()))
-
-        # 참고 자료 순서대로 정렬 (등장 순서 유지)
-        unique_references = list(dict.fromkeys(references))
-
-        # 참고 자료 매핑 생성 (등장 순서대로 1부터 번호 부여)
-        reference_mapping = {}
-        for i, ref in enumerate(unique_references):
-            reference_mapping[ref] = i + 1
-
-        # URL 매핑 생성 (새로운 참조 번호에 맞춰 URL 재배열)
-        url_mapping = {}
-        for orig_num, new_num in reference_mapping.items():
-            # 원래 인덱스는 1부터 시작하므로 -1 해줌
-            if orig_num >= 1 and orig_num < len(url_list):
-                url_mapping[new_num] = url_list[orig_num - 1]
-
-        # 텍스트 내 참고 자료 번호 변환
-        def replace_references(match):
-            nums = match.group(1).split(",")
-            # 각 번호를 개별 [[]] 태그로 변환
-            new_refs = []
-            for num in nums:
-                new_num = reference_mapping[int(num.strip())]
-                new_refs.append(f"[[{new_num}]]")
-            return "".join(new_refs)
-
-        # 텍스트에서 참고 자료 번호 변환
-        modified_text = re.sub(r"\[\[([^\]]+)\]\]", replace_references, text)
-
-        return modified_text, url_mapping
-
-    def chunk_formatting(self, contexts: list[dict]) -> tuple[str, list[str]]:
+    def _chunk_formatting(self, contexts: list[dict]) -> tuple[str, list[str]]:
         if len(contexts) == 0:
             return ""
 
         formatted_results = []
         url_list = []
-        for i, result in enumerate(contexts):
-            formatted_results.append(f"참고자료{i+1} : {result['content']}")
+        for i, result in enumerate(contexts, start=1):
+            formatted_results.append(
+                f"<idx={i}>\n{result['content'].strip()}\n</idx={i}>"
+            )
             url_list.append(f"{result['url']}")
-        return "\n".join(formatted_results), url_list
+        return "\n\n".join(formatted_results), url_list
 
     def _build_nodes(self) -> dict:
         @T
@@ -130,39 +92,16 @@ class QAAgent(BaseAgent):
             """
             Generate a response based on the retrieved verses.
             """
-            # 프롬프트 정의 수정
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    (
-                        "system",
-                        dedent(
-                            """
-                            # Role
-                            당신은 비기독교인들을 대상으로 기독교/성경/삶에 관련된 질문에 답하는 챗봇입니다.
-                            유저의 질문의 핵심을 파악하고, 필요한 자료를 참고해서 적절한 대답을 해주세요.
-                            검색 결과를 바탕으로 비기독교인도 가능한 납득할 수 있도록 논리적으로 답변을 작성해주세요.
-                            답변을 줄때 논문과 같이 참고한 자료의 번호를 [[*]] 형태로 적어주세요. (예시: "...[[1]] ...[[2,3]]").
-                            참고자료 번호는 반드시 reference에 있는 내용과 동일해야합니다.
-                            """
-                        ),
-                    ),
-                    MessagesPlaceholder(variable_name="messages"),
-                    ("human", "question: {question}"),
-                    ("ai", "검색 결과: {search_results}"),
-                ]
-            )
-            formatted_result, url_list = self.chunk_formatting(state["contexts"])
-
-            # LLM으로 응답 생성
-            chain = prompt | self.llm | StrOutputParser()
-            response = chain.invoke(
+            formatted_result, url_list = self._chunk_formatting(state["contexts"])
+            response = self._invoke_runnable(
+                "generate_response",
                 {
                     "messages": state.get("messages", []),
                     "question": state["question"],
                     "search_results": formatted_result,
-                }
+                },
             )
-            response, references = self.match_references(response, url_list)
+            response, references = self._match_references(response, url_list)
             result = {
                 "response": response,
                 "references": references,
@@ -173,6 +112,39 @@ class QAAgent(BaseAgent):
         return {
             "search_internet": search_internet,
             "generate_response": generate_response,
+        }
+
+    def _build_runnables(self) -> dict:
+        """Build runnables."""
+        # 프롬프트 정의 수정
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    dedent(
+                        """
+                        # Role
+                        당신은 비기독교인들을 대상으로 기독교/성경/삶에 관련된 질문에 답하는 챗봇입니다.
+                        유저의 질문의 핵심을 파악하고, 필요한 자료를 참고해서 적절한 대답을 해주세요.
+                        검색 결과를 바탕으로 비기독교인도 가능한 납득할 수 있도록 논리적으로 답변을 작성해주세요.
+                        답변을 줄때 논문과 같이 참고한 자료의 번호를 [[*]] 형태로 적어주세요. (예시: "...[[1]] ...[[2,3]] ... [[4,5]]").
+                        참고자료 번호는 반드시 <contexts>에 있는 내용과 동일해야합니다.
+                        
+                        <contexts>
+                        {search_results}
+                        </contexts>
+                        """
+                    ),
+                ),
+                MessagesPlaceholder(variable_name="messages"),
+                ("user", "question: {question}"),
+            ]
+        )
+
+        # LLM으로 응답 생성
+        chain = prompt | self.llm | StrOutputParser()
+        return {
+            "generate_response": chain,
         }
 
     def _build_graph(self) -> CompiledStateGraph:
