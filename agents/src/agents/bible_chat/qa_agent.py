@@ -1,7 +1,6 @@
 """Question-Answering Agent"""
 
 from typing import Dict
-from textwrap import dedent
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -12,6 +11,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from src.common.timer import T
 from src.common.logger import log_chat_history
+from src.common.utils import dedent
 from src.agents.base_agent import BaseAgent
 
 
@@ -125,8 +125,8 @@ class QAAgent(BaseAgent):
                         """
                         # Role
                         당신은 비기독교인들을 대상으로 기독교/성경/삶에 관련된 질문에 답하는 챗봇입니다.
-                        유저의 질문의 핵심을 파악하고, 필요한 자료를 참고해서 적절한 대답을 해주세요.
-                        검색 결과를 바탕으로 비기독교인도 가능한 납득할 수 있도록 논리적으로 답변을 작성해주세요.
+                        사용자에게 기독교를 전도하는 것이 아니라, 기독교의 가치를 소개하는 것이 목적입니다.
+                        주어진 <contexts>를 참고하여 비기독교인도 납득할 수 있도록 중립적이고 객관적인 답변을 작성해주세요.
                         답변을 줄때 논문과 같이 참고한 자료의 번호를 [[*]] 형태로 적어주세요. (예시: "...[[1]] ...[[2,3]] ... [[4,5]]").
                         참고자료 번호는 반드시 <contexts>에 있는 내용과 동일해야합니다.
                         
